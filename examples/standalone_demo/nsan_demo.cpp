@@ -12,6 +12,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <vector>
+#include "../nsan_demo_config.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -42,33 +43,22 @@ static void enable_ansi() {}
 // automatically by instrumented code. Here we call it manually to show how it
 // works.
 
-static int g_checks = 0, g_warnings = 0;
+// g_nsan_checks, g_nsan_warnings, nsan_check() all come from nsan_demo_config.h
+// Aliases so existing test code keeps working unchanged
+#define g_checks   g_nsan_checks
+#define g_warnings g_nsan_warnings
 
-// Threshold: warn when relative error exceeds this.
-// ~1e-4 means "the float result is off by more than 0.01% from the reference"
-static double NSAN_REL_EPSILON = 1e-4;
-
-static bool nsan_check(float original, long double shadow, const char *label) {
-  ++g_checks;
-  double orig_d  = static_cast<double>(original);
-  double shad_d  = static_cast<double>(shadow);   // downcast only for display
+static void print_warn(const char *label, float original, long double shadow) {
+  double orig_d = static_cast<double>(original);
+  double shad_d = static_cast<double>(shadow);
   double abs_err = fabs(orig_d - shad_d);
-  double rel_err = (fabs(shad_d) > 1e-15) ? abs_err / fabs(shad_d) : abs_err;
-
-  const char *ep = getenv("NSAN_REL_EPSILON");
-  double thr = ep ? atof(ep) : NSAN_REL_EPSILON;
-
-  bool warn = (rel_err > thr);
-  if (warn) {
-    ++g_warnings;
-    printf(RED "  [WARN]" RESET "  %-32s\n"
-           "          float32  = %+.8g\n"
-           "          shadow   = %+.8g\n"
-           "          rel_err  = " YELLOW "%.2e" RESET
-           "  (threshold %.2e)\n",
-           label, orig_d, shad_d, rel_err, thr);
-  }
-  return warn;
+  double denom = fabs(shad_d) > fabs(orig_d) ? fabs(shad_d) : fabs(orig_d);
+  double rel_err = (denom > 1e-300) ? abs_err / denom : abs_err;
+  printf(RED "  [WARN]" RESET "  %-32s\n"
+         "          float32  = %+.8g\n"
+         "          shadow   = %+.8g\n"
+         "          rel_err  = " YELLOW "%.2e" RESET "  (threshold %.2e)\n",
+         label, orig_d, shad_d, rel_err, g_nsan_cfg.rel_epsilon);
 }
 
 static void section(const char *title) {
