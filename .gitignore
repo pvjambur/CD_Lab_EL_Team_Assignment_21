@@ -47,3 +47,8 @@ core.*
 # Build directories
 /build/
 /install/
+
+# Claude Code — never commit these
+.claudeconfig
+memory/
+.claude/
