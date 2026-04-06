@@ -1,8 +1,17 @@
 // simple_computation.cpp - NSan Example
 //
 // Demonstrates naive vs compensated summation.
-// Compile with: clang++ -fsanitize=numerical simple_computation.cpp -o simple
-// Run:         ./simple
+//
+// Standalone (no NSan):
+//   clang++ simple_computation.cpp -o simple && ./simple
+//
+// With NSan instrumentation (after building NSan):
+//   clang++ -Xclang -load -Xclang ../build/src/nsan/libnsan_pass.so \
+//     simple_computation.cpp -L../build/src/runtime -lnsan_runtime \
+//     -o simple_instrumented
+//   ./simple_instrumented
+//
+// Expected: NaiveSum triggers NSan warning; KahanSum does not.
 
 #include <cstdio>
 #include <vector>

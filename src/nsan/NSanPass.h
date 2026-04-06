@@ -11,35 +11,34 @@
 
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/Pass.h"
 
-using namespace llvm;
-
-class NSanPass : public FunctionPass {
+class NSanPass : public llvm::FunctionPass {
 public:
   static char ID;
-  NSanPass() : FunctionPass(ID) {}
+  NSanPass() : llvm::FunctionPass(ID) {}
 
-  bool runOnFunction(Function &F) override;
+  bool runOnFunction(llvm::Function &F) override;
 
 private:
   ShadowValueMap shadow_map_;
 
   // Detection
-  bool isFloatingPointValue(Value *V);
+  bool isFloatingPointValue(llvm::Value *V);
 
   // Shadow creation
-  Value *getShadowValue(Value *V);
-  Value *createShadowValue(Value *V, IRBuilder<> &B);
-  Type *getShadowType(Type *OrigType);
+  llvm::Value *getShadowValue(llvm::Value *V);
+  llvm::Value *createShadowValue(llvm::Value *V, llvm::IRBuilder<> &B);
+  llvm::Type *getShadowType(llvm::Type *OrigType);
 
   // Instrumentation
-  void instrumentBinaryOp(BinaryOperator *Op);
-  void instrumentCastOp(CastInst *Cast);
-  void instrumentLoadStore(Instruction *I);
-  void instrumentFunctionCall(CallInst *Call);
-  void instrumentReturnValue(ReturnInst *Ret);
-  void instrumentFunctionEntry(Function &F);
+  void instrumentBinaryOp(llvm::BinaryOperator *Op);
+  void instrumentCastOp(llvm::CastInst *Cast);
+  void instrumentLoadStore(llvm::Instruction *I);
+  void instrumentFunctionCall(llvm::CallInst *Call);
+  void instrumentReturnValue(llvm::ReturnInst *Ret);
+  void instrumentFunctionEntry(llvm::Function &F);
 };
 
 #endif // NSAN_PASS_H

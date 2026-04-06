@@ -17,18 +17,19 @@ include(AddLLVM)
 include_directories(${LLVM_INCLUDE_DIRS})
 add_definitions(${LLVM_DEFINITIONS})
 
-# Compiler flags (LLVM style)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -fno-exceptions")
+# Note: -fno-rtti -fno-exceptions are set per-target on nsan_pass only,
+# NOT globally, so the runtime library and tests can use normal C++ features.
+
+# Enable testing before subdirectories so CTest is available everywhere
+enable_testing()
 
 # Add subdirectories
 add_subdirectory(src/nsan)
 add_subdirectory(src/runtime)
 add_subdirectory(tests)
 
-# Enable testing
+# (enable_testing already called above)
 enable_testing()
 
-# Print configuration info
-message(STATUS "LLVM libs: ${LLVM_LIBRARIES}")
 message(STATUS "LLVM include dirs: ${LLVM_INCLUDE_DIRS}")
 message(STATUS "LLVM definitions: ${LLVM_DEFINITIONS}")

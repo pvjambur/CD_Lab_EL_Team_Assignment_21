@@ -6,6 +6,7 @@
 #define NSAN_RUNTIME_H
 
 #include <cstddef>
+#include <cstdint>
 
 extern "C" {
 
@@ -18,7 +19,8 @@ void __nsan_on_load(void *addr, size_t size);
 void __nsan_on_store(void *addr, void *value, size_t size);
 
 // Function boundaries
-void __nsan_push_shadow_parameters(int func_addr, ...);
+// func_addr identifies which function's shadow stack we're pushing to
+void __nsan_push_shadow_parameters(uintptr_t func_addr, ...);
 double __nsan_pop_shadow_return();
 void __nsan_push_shadow_return(double shadow);
 

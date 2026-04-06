@@ -9,25 +9,23 @@
 #include "llvm/IR/Value.h"
 #include <map>
 
-using namespace llvm;
-
 class ShadowValueMap {
 public:
-  Value *getShadowValue(Value *V) {
+  llvm::Value *getShadowValue(llvm::Value *V) {
     auto it = mapping_.find(V);
     return (it != mapping_.end()) ? it->second : nullptr;
   }
 
-  void mapShadowValue(Value *Original, Value *Shadow) {
+  void mapShadowValue(llvm::Value *Original, llvm::Value *Shadow) {
     mapping_[Original] = Shadow;
   }
 
-  bool hasShadow(Value *V) { return mapping_.count(V) > 0; }
+  bool hasShadow(llvm::Value *V) { return mapping_.count(V) > 0; }
 
   void clear() { mapping_.clear(); }
 
 private:
-  std::map<Value *, Value *> mapping_;
+  std::map<llvm::Value *, llvm::Value *> mapping_;
 };
 
 #endif // SHADOW_VALUE_MAP_H
