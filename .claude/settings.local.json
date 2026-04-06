@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(clang++ --version)",
+      "Bash(g++ --version)",
+      "Bash(cl)",
+      "Bash(g++ -std=c++14 --version)",
+      "Bash(g++ -std=c++14 -O1 -Wall nsan_demo.cpp -o nsan_demo.exe)",
+      "Bash(./nsan_demo.exe)",
+      "Bash(sed:*)",
+      "Bash(echo \"Exit: $?\")"
+    ]
+  }
+}
