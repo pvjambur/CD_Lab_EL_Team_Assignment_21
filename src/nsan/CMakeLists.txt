@@ -1,5 +1,11 @@
 # NSan Pass — LLVM Module
 # Builds libnsan_pass.so: the loadable LLVM plugin that instruments FP ops.
+if(NOT LLVM_FOUND)
+  find_package(LLVM REQUIRED CONFIG)
+  include(AddLLVM)
+  include_directories(${LLVM_INCLUDE_DIRS})
+  add_definitions(${LLVM_DEFINITIONS})
+endif()
 
 add_library(nsan_pass MODULE
   NSanPass.cpp
@@ -7,7 +13,7 @@ add_library(nsan_pass MODULE
 )
 
 # Map LLVM components needed by the pass
-llvm_map_components_to_libnames(llvm_libs support core irreader passes)
+llvm_map_components_to_libnames(llvm_libs support core irreader passes transformutils)
 
 target_include_directories(nsan_pass PRIVATE
   ${CMAKE_SOURCE_DIR}/include
