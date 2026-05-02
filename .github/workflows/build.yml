@@ -20,12 +20,12 @@ jobs:
         chmod +x llvm.sh
         sudo ./llvm.sh 17
         
-    - name: Run Build Script
+    - name: Set Environment Variables & Build
       run: |
         export LLVM_BUILD="/usr/lib/llvm-17"
         ./build.sh
         
-    - name: Run Unit & Evaluation Tests
+    - name: Run Tests
       run: |
         ctest --test-dir build
         ./run.sh
