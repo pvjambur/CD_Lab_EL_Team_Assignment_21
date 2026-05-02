@@ -14,20 +14,18 @@ jobs:
         sudo apt-get install -y cmake ninja-build lld \
           software-properties-common lsb-release wget
         
-    - name: Install LLVM
+    - name: Install LLVM 17
       run: |
-        # Fetch official LLVM installation script to ensure we get a working version
         wget https://apt.llvm.org/llvm.sh
         chmod +x llvm.sh
         sudo ./llvm.sh 17
         
-    - name: Set Environment Variables & Build
+    - name: Run Build Script
       run: |
-        # Point the build script to the correct LLVM 17 path
         export LLVM_BUILD="/usr/lib/llvm-17"
         ./build.sh
         
-    - name: Run Tests
+    - name: Run Unit & Evaluation Tests
       run: |
         ctest --test-dir build
         ./run.sh
