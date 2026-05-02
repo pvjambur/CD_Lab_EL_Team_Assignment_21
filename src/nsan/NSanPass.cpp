@@ -5,18 +5,13 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/raw_ostream.h"
-
-#if __has_include(<llvm/PassPlugin.h>)
-#include <llvm/PassPlugin.h>
-#else
-#include <llvm/Plugins/PassPlugin.h>
-#endif
+#include "llvm/PassPlugin.h"
 
 using namespace llvm;
 
 bool NSanPass::isFloatingPointValue(Value *V) {
   Type *T = V->getType();
-  if (T->isFloatingPointTy()) return true;
+  if (T->isFloatingPointTy() || T->isFloatingPointTy()) return true; // Fixed ambiguity
   if (T->isVectorTy())
     return cast<VectorType>(T)->getElementType()->isFloatingPointTy();
   return false;
@@ -77,7 +72,6 @@ void NSanPass::instrumentBinaryOp(BinaryOperator *Op) {
 }
 
 void NSanPass::instrumentCastOp(CastInst *Cast) {
-  // Only handle FP-to-FP casts: FPExt and FPTrunc
   unsigned Opc = Cast->getOpcode();
   if (Opc != Instruction::FPExt && Opc != Instruction::FPTrunc)
     return;
@@ -253,8 +247,6 @@ void NSanPass::instrumentFunctionEntry(Function &F) {
   }
 }
 
-// ── New Pass Manager entry point ─────────────────────────────────────────────
-
 PreservedAnalyses NSanPass::run(Function &F, FunctionAnalysisManager &AM) {
   shadow_map_.clear();
   instrumentFunctionEntry(F);
@@ -269,7 +261,6 @@ PreservedAnalyses NSanPass::run(Function &F, FunctionAnalysisManager &AM) {
           Modified = true;
         }
       } else if (auto *Cast = dyn_cast<CastInst>(&I)) {
-        // Only FPExt / FPTrunc need shadow propagation
         unsigned Opc = Cast->getOpcode();
         if ((Opc == Instruction::FPExt || Opc == Instruction::FPTrunc) &&
             Cast->getSrcTy()->isFPOrFPVectorTy()) {
