@@ -7,16 +7,27 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Install Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake ninja-build clang
+        sudo apt-get install -y cmake ninja-build lld \
+          software-properties-common lsb-release wget
         
-    - name: Build Project
-      run: ./build.sh
-      
-    - name: Run Unit & Evaluation Tests
+    - name: Install LLVM
+      run: |
+        # Fetch official LLVM installation script to ensure we get a working version
+        wget https://apt.llvm.org/llvm.sh
+        chmod +x llvm.sh
+        sudo ./llvm.sh 17
+        
+    - name: Set Environment Variables & Build
+      run: |
+        # Point the build script to the correct LLVM 17 path
+        export LLVM_BUILD="/usr/lib/llvm-17"
+        ./build.sh
+        
+    - name: Run Tests
       run: |
         ctest --test-dir build
         ./run.sh
