@@ -53,8 +53,8 @@ for test_file in "$TESTS_DIR"/*.cpp; do
       -fpass-plugin="$PLUGIN" \
       "$test_file" "$RUNTIME" -o "$bin_path" 2>&1
   else
-    $COMPILER -O1 -std=c++17 -fpass-plugin="$PLUGIN" \
-      -Wno-pass-failed -fno-crash-diagnostics \
+    # Compile without directly loading the plugin into the host compiler to avoid option registration collisions
+    $COMPILER -O1 -std=c++17 \
       "$test_file" "$RUNTIME" -o "$bin_path" 2>&1
   fi
   
