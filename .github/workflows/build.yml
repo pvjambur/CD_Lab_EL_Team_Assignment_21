@@ -20,12 +20,15 @@ jobs:
         chmod +x llvm.sh
         sudo ./llvm.sh 17
         
-    - name: Set Environment Variables & Build
+    - name: Build Project
       run: |
+        export CC=/usr/bin/clang-17
+        export CXX=/usr/bin/clang++-17
         export LLVM_BUILD="/usr/lib/llvm-17"
         ./build.sh
         
     - name: Run Tests
       run: |
-        ctest --test-dir build
+        export CC=/usr/bin/clang-17
+        export CXX=/usr/bin/clang++-17
         ./run.sh

@@ -43,15 +43,17 @@ for test_file in "$TESTS_DIR"/*.cpp; do
   test_name=$(basename "$test_file" .cpp)
   bin_path="$BINS_DIR/$test_name"
   
+  COMPILER=${CXX:-clang++}
+
   if [ "$(uname)" = "Darwin" ]; then
-    clang++ $SYSROOT_FLAG -O1 -std=c++17 \
+    $COMPILER $SYSROOT_FLAG -O1 -std=c++17 \
       -nostdinc++ \
       -isystem "$SDK/usr/include/c++/v1" \
       -isystem "$SDK/usr/include" \
       -fpass-plugin="$PLUGIN" \
       "$test_file" "$RUNTIME" -o "$bin_path" 2>&1
   else
-    clang++ -O1 -std=c++17 -fpass-plugin="$PLUGIN" \
+    $COMPILER -O1 -std=c++17 -fpass-plugin="$PLUGIN" \
       "$test_file" "$RUNTIME" -o "$bin_path" 2>&1
   fi
   
