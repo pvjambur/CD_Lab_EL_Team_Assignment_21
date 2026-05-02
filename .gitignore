@@ -52,3 +52,5 @@ core.*
 .claudeconfig
 memory/
 .claude/
+
+.DS_Store

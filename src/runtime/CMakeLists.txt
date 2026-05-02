@@ -7,7 +7,7 @@ add_library(nsan_runtime STATIC
   shadow_memory.cpp
 )
 
-target_include_directories(nsan_runtime PRIVATE
+target_include_directories(nsan_runtime PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_SOURCE_DIR}/include
   ${CMAKE_SOURCE_DIR}/include/internal

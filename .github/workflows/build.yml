@@ -1,0 +1,22 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake ninja-build clang
+        
+    - name: Build Project
+      run: ./build.sh
+      
+    - name: Run Unit & Evaluation Tests
+      run: |
+        ctest --test-dir build
+        ./run.sh

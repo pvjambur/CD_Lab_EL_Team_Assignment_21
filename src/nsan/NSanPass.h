@@ -1,38 +1,40 @@
-// NSanPass.h - Header for NSan LLVM Pass
-//
-// Declares the NSanPass class, which is an LLVM FunctionPass
-// that instruments floating-point operations with shadow
-// computations for numerical stability checking.
-
 #ifndef NSAN_PASS_H
 #define NSAN_PASS_H
 
 #include "ShadowValueMap.h"
-
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/Pass.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/PassManager.h"
 
-class NSanPass : public llvm::FunctionPass {
+// Forward declarations — avoids pulling in heavy headers here
+namespace llvm {
+  class BinaryOperator;
+  class CallInst;
+  class CastInst;
+  class ReturnInst;
+  class AnalysisUsage;
+  class Type;
+  class Value;
+}
+
+class NSanPass : public llvm::PassInfoMixin<NSanPass> {
 public:
-  static char ID;
-  NSanPass() : llvm::FunctionPass(ID) {}
+  explicit NSanPass() = default;
 
-  bool runOnFunction(llvm::Function &F) override;
+  // New Pass Manager entry point
+  llvm::PreservedAnalyses run(llvm::Function &F,
+                              llvm::FunctionAnalysisManager &AM);
 
 private:
   ShadowValueMap shadow_map_;
 
-  // Detection
-  bool isFloatingPointValue(llvm::Value *V);
-
-  // Shadow creation
+  bool         isFloatingPointValue(llvm::Value *V);
+  llvm::Type  *getShadowType(llvm::Type *OrigType);
   llvm::Value *getShadowValue(llvm::Value *V);
   llvm::Value *createShadowValue(llvm::Value *V, llvm::IRBuilder<> &B);
-  llvm::Type *getShadowType(llvm::Type *OrigType);
 
-  // Instrumentation
   void instrumentBinaryOp(llvm::BinaryOperator *Op);
   void instrumentCastOp(llvm::CastInst *Cast);
   void instrumentLoadStore(llvm::Instruction *I);
