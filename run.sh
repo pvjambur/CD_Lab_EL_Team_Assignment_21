@@ -54,6 +54,7 @@ for test_file in "$TESTS_DIR"/*.cpp; do
       "$test_file" "$RUNTIME" -o "$bin_path" 2>&1
   else
     $COMPILER -O1 -std=c++17 -fpass-plugin="$PLUGIN" \
+      -Wno-pass-failed -fno-crash-diagnostics \
       "$test_file" "$RUNTIME" -o "$bin_path" 2>&1
   fi
   
