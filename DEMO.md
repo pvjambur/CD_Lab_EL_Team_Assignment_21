@@ -1,6 +1,6 @@
 # Demo: NSan Detection in Action
 
-This file provides terminal output "screenshots" demonstrating NSan successfully detecting numerical instability (failure cases) and correctly remaining silent on stable computations (working cases).
+This file provides terminal output demonstrating NSan successfully detecting numerical instability (failure cases) and correctly remaining silent on stable computations (working cases).
 
 ## 1. Failure Case: Catastrophic Cancellation (TC1)
 When the program experiences a loss of significance that exceeds the epsilon threshold, NSan reports the divergence with a `[WARN]` message.
