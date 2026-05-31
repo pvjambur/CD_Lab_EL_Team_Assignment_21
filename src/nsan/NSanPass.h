@@ -8,7 +8,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 
-// Forward declarations — avoids pulling in heavy headers here
+// Forward declarations — avoids pulling in heavy headers 
 namespace llvm {
   class BinaryOperator;
   class CallInst;

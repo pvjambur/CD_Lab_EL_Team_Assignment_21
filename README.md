@@ -47,29 +47,21 @@ NSan is a floating-point numerical sanitizer designed to automatically detect an
 ```
 nsan-project/
 ├── README.md                 # Project overview
-├── PROBLEM_STATEMENT.md      # Detailed problem explanation with examples
-├── SKILLS.md                 # Skill definitions for Claude
-├── INSTRUCTIONS.md           # Technical implementation guide
+├── DESIGN.md                 # Approach and alternative solutions
+├── IMPLEMENTATION.md         # LLVM-specific details
+├── EVALUATION.md             # Metrics, comparisons, and test cases
+├── DEMO.md                   # Video/screenshot demonstrations
 ├── src/
-│   ├── nsan.cpp             # Main sanitizer implementation
-│   ├── runtime/
-│   │   ├── nsan_runtime.cpp # Runtime library
-│   │   └── shadow_memory.cpp # Shadow memory management
-│   └── passes/
-│       └── nsan_pass.cpp    # LLVM transformation pass
-├── include/
-│   ├── nsan.h               # Public API
-│   └── shadow_tracking.h    # Shadow value tracking
-├── tests/
-│   ├── basic_tests.cpp
-│   ├── test_compensated_sum.cpp
-│   └── benchmarks/
-├── examples/
-│   ├── naive_summation.cpp
-│   └── matrix_operations.cpp
-├── CMakeLists.txt
-└── docs/
-    └── implementation_notes.md
+│   ├── nsan/                 # LLVM transformation pass
+│   └── runtime/              # Runtime library
+├── include/                  # Public API
+├── tests/                    # 10+ test cases
+├── examples/                 # Example standalone codes
+├── CMakeLists.txt            # Root build config
+├── build.sh                  # Build script
+├── run.sh                    # Test runner
+├── nsan-clang++              # Compiler wrapper
+└── benchmark.sh              # Performance benchmarking script
 ```
 
 ## Getting Started
@@ -99,8 +91,8 @@ make test  # Run test suite
 ### Basic Usage
 
 ```bash
-# Compile with NSan instrumentation
-clang++ -fsanitize=numerical my_program.cpp -o my_program
+# Compile with NSan instrumentation using our wrapper
+./nsan-clang++ -fsanitize=numerical my_program.cpp -o my_program
 
 # Run with default epsilon tolerance
 ./my_program
@@ -136,44 +128,7 @@ This enables comparison for consistency checking without expensive runtime calls
 2. **Branch Consistency**: Verified for floating-point comparisons
 3. **Load Consistency**: Validated when loading from memory
 
-## Unique Enhancements Over Reference Implementation
 
-### 1. Enhanced Diagnostics System
-- Real-time error severity ranking
-- Machine-readable diagnostic output (JSON)
-- Integration with IDE error reporting
-- Historical tracking of precision degradation
-
-### 2. Adaptive Threshold System
-- Statistical analysis of precision loss patterns
-- Automatic epsilon tuning based on application characteristics
-- Per-function tolerance configuration
-
-### 3. GPU Support
-- CUDA instrumentation (optional extension)
-- Half-precision float handling (bfloat16, float16)
-- SIMD-aware shadow computations
-
-### 4. Integration Features
-- Continuous Integration pipeline support
-- Automated regression testing for numerical stability
-- Performance profiling integration
-- Compiler optimization interaction analysis
-
-### 5. Debugging Utilities
-```cpp
-__nsan_check_float(v)           // Explicit consistency check
-__nsan_dump_shadow_mem(addr, sz) // Shadow memory inspection
-__nsan_resume_float(v)          // Resume from original value
-__nsan_get_shadow(v)            // Retrieve shadow value
-__nsan_suppress_warning()       // Contextual suppression
-```
-
-### 6. Advanced Features
-- Dependency analysis: Trace numerical errors through computation chains
-- Blame assignment: Identify which operations introduce instability
-- Hot-spot detection: Profile which computations are most unstable
-- Repair suggestions: Recommend compensated algorithms (Kahan summation, etc.)
 
 ## Performance Characteristics
 
@@ -278,9 +233,9 @@ This project is based on research from Google LLC and follows the same licensing
 
 ## Support & Documentation
 
-- **Implementation Details**: See `INSTRUCTIONS.md`
-- **Problem Analysis**: See `PROBLEM_STATEMENT.md`
-- **Claude AI Guide**: See `SKILLS.md`
+- **Design**: See `DESIGN.md`
+- **Implementation**: See `IMPLEMENTATION.md`
+- **Evaluation**: See `EVALUATION.md`
 - **API Documentation**: See `include/nsan.h`
 
 ---
