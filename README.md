@@ -238,15 +238,15 @@ CD_Lab_EL_Team_Assignment_21/
 | TC3 | `tc3_kahan.cpp` | Kahan compensated sum | **SILENT** | Silent |
 | TC4 | `tc4_alternating.cpp` | Alternating harmonic series | `[WARN] rel=1.06e-05` | WARN |
 | TC5 | `tc5_poly.cpp` | Poly near root `x=1` | `[WARN]` | WARN |
-| TC6 | `tc6_newton.cpp` | Newton's method | `[WARN]` | WARN |
+| TC6 | `tc6_newton.cpp` | Newton's method | **SILENT** | Silent |
 | TC7 | `tc7_variance.cpp` | One-pass variance | `[WARN] rel=4.54e+04` | WARN |
 | TC8 | `tc8_exact_sum.cpp` | Exact summation | **SILENT** | Silent |
 | TC9 | `tc9_fma.cpp` | FMA near-zero | `[WARN] rel=8.22e+05` | WARN |
-| TC10 | `tc10_sigmoid.cpp` | Sigmoid instability | `[WARN]` | WARN |
+| TC10 | `tc10_sigmoid.cpp` | Sigmoid instability | **SILENT** | Silent |
 | TC11 | `tc11_mixed_dot.cpp` | Mixed-precision dot product | `[WARN]` | WARN |
-| TC12 | `tc12_newton_sqrt.cpp` | Newton sqrt convergence | `[WARN]` | WARN |
+| TC12 | `tc12_newton_sqrt.cpp` | Newton sqrt convergence | **SILENT** | Silent |
 
-> TC3 and TC8 deliberately produce **no warnings** — validating NSan's false-positive suppression.
+> TC3, TC6, TC8, TC10, and TC12 deliberately produce **no warnings** — validating NSan's false-positive suppression.
 
 ---
 

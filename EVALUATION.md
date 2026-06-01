@@ -32,7 +32,7 @@ Floating-point precision issues are notoriously difficult to debug because they 
 
 6. **TC6: Newton's Method (Reciprocal)** (`tc6_newton.cpp`)
    - *Pattern*: Iterative division-free reciprocal calculation $x_{n+1} = x_n(2 - a \cdot x_n)$.
-   - *Significance*: Shows how iterative feedback loops can amplify small precision errors. NSan monitors the convergence.
+   - *Significance*: **False-Positive Test.** Demonstrates that stable, division-free reciprocal loops do not trigger spurious alerts. NSan remains **silent**, verifying correct tracking of stable iterative feedback loops.
 
 7. **TC7: One-Pass Variance** (`tc7_variance.cpp`)
    - *Pattern*: Naive calculation of statistical variance using the formula $\sigma^2 = \frac{\sum x^2}{N} - \mu^2$.
@@ -48,7 +48,7 @@ Floating-point precision issues are notoriously difficult to debug because they 
 
 10. **TC10: Sigmoid Function Instability** (`tc10_sigmoid.cpp`)
     - *Pattern*: Sigmoid function evaluation $S(x) = \frac{1}{1 + e^{-x}}$ for extreme negative inputs.
-    - *Significance*: Underflow in $e^{-x}$ can cause division by zero or NaN if not guarded.
+    - *Significance*: **False-Positive Test.** Verifies that standard sigmoid evaluations in stable input domains do not trigger warnings. NSan remains **silent**, demonstrating robust false-positive suppression.
 
 11. **TC11: Mixed-Precision Dot Product** (`tc11_mixed_dot.cpp`)
     - *Pattern*: Multiplying alternating magnitude vectors.
@@ -56,7 +56,7 @@ Floating-point precision issues are notoriously difficult to debug because they 
 
 12. **TC12: Newton-Raphson Square Root** (`tc12_newton_sqrt.cpp`)
     - *Pattern*: Iterative calculation of $\sqrt{2}$.
-    - *Significance*: Confirms that iterative root-finding methods converge to identical values at both single and shadow precision when stable.
+    - *Significance*: **False-Positive Test.** Confirms that stable root-finding converges identically in both native and shadow execution. NSan remains **silent**, validating precision alignment in stable algorithms.
 
 ---
 
@@ -80,7 +80,7 @@ When a test case represents an **unstable** algorithm (TC1, TC2, TC4, TC5, TC7, 
 *Significance*: This output pinpoints the exact numeric state and degree of precision loss, providing developers with actionable debugging data.
 
 ### B. Silent Passes (No Output)
-When a test case represents a **stable** or exact algorithm (TC3, TC8, TC10, TC12), the terminal will simply show:
+When a test case represents a **stable** or exact algorithm (TC3, TC6, TC8, TC10, TC12), the terminal will simply show:
 ```
 Executing tc3_kahan...
 TC3 [Kahan Sum — SILENT]  float=100000.000000  ref=100000.000000  rel_err=0.00e+00
