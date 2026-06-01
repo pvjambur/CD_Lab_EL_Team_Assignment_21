@@ -1,0 +1,34 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake ninja-build lld \
+          software-properties-common lsb-release wget
+        
+    - name: Install LLVM 17
+      run: |
+        wget https://apt.llvm.org/llvm.sh
+        chmod +x llvm.sh
+        sudo ./llvm.sh 17
+        
+    - name: Build Project
+      run: |
+        export CC=/usr/bin/clang-17
+        export CXX=/usr/bin/clang++-17
+        export LLVM_BUILD="/usr/lib/llvm-17"
+        ./build.sh
+        
+    - name: Run Tests
+      run: |
+        export CC=/usr/bin/clang-17
+        export CXX=/usr/bin/clang++-17
+        ./run.sh

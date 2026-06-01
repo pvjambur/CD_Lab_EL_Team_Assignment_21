@@ -1,0 +1,166 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 462" width="760" height="462">
+
+  <!-- ░░ BACKGROUND ░░ -->
+  <rect width="760" height="462" fill="#0d1117" rx="10"/>
+
+  <!-- ░░ TITLE ░░ -->
+  <text x="380" y="36" text-anchor="middle" fill="#e6edf3"
+        font-family="monospace" font-size="16" font-weight="bold">
+    NSan  ·  Shadow  Computation  ·  3D  Internals
+  </text>
+
+  <!-- ══════════════════════════════════════════
+       SHADOW SLAB  (purple — higher precision)
+       ══════════════════════════════════════════ -->
+
+  <!-- 3D top face -->
+  <polygon points="70,80 650,80 690,55 110,55"
+           fill="#2d1b4e" stroke="#a855f7" stroke-width="1.5"/>
+
+  <!-- Front face -->
+  <rect x="70" y="80" width="580" height="110"
+        fill="#1a0a3c" stroke="#a855f7" stroke-width="1.5"/>
+
+  <!-- 3D right face -->
+  <polygon points="650,80 690,55 690,165 650,190"
+           fill="#220f46" stroke="#a855f7" stroke-width="1.5"/>
+
+  <!-- Right-face depth label -->
+  <text x="674" y="118" fill="#7c3aed" font-family="monospace" font-size="9"
+        transform="rotate(-55,674,118)">fp128</text>
+
+  <!-- Header band -->
+  <rect x="70" y="80" width="580" height="24" fill="#3b1f6e"/>
+  <text x="365" y="96" text-anchor="middle" fill="#c084fc"
+        font-family="monospace" font-size="11" font-weight="bold">
+    SHADOW  LAYER  —  higher-precision  shadow  values
+  </text>
+
+  <!-- Content -->
+  <text x="98" y="122" fill="#e9d5ff" font-family="monospace" font-size="11">
+    shadow_a  =  FPExt(a)       float &#8594; double   |   double &#8594; fp128
+  </text>
+  <text x="98" y="142" fill="#e9d5ff" font-family="monospace" font-size="11">
+    shadow_b  =  FPExt(b)       float &#8594; double   |   double &#8594; fp128
+  </text>
+  <text x="98" y="164" fill="#d8b4fe" font-family="monospace" font-size="11" font-weight="bold">
+    shadow_r  =  shadow_a  op  shadow_b       (high-precision result)
+  </text>
+
+  <!-- ══════════════════════════════════════════
+       GAP  —  FPExt promotion  +  consistency
+       ══════════════════════════════════════════ -->
+
+  <!-- Side dashed rails -->
+  <line x1="88"  y1="190" x2="88"  y2="307"
+        stroke="#374151" stroke-width="1" stroke-dasharray="4,4"/>
+  <line x1="632" y1="190" x2="632" y2="307"
+        stroke="#374151" stroke-width="1" stroke-dasharray="4,4"/>
+
+  <!-- FPExt  LEFT  up-arrow (amber) -->
+  <line x1="155" y1="307" x2="155" y2="203"
+        stroke="#f59e0b" stroke-width="2" stroke-dasharray="5,3"/>
+  <polygon points="155,190 149,203 161,203" fill="#f59e0b"/>
+  <text x="163" y="209" fill="#fbbf24" font-family="monospace"
+        font-size="9" font-weight="bold">FPExt</text>
+
+  <!-- FPExt  RIGHT  up-arrow (amber) -->
+  <line x1="572" y1="307" x2="572" y2="203"
+        stroke="#f59e0b" stroke-width="2" stroke-dasharray="5,3"/>
+  <polygon points="572,190 566,203 578,203" fill="#f59e0b"/>
+  <text x="580" y="209" fill="#fbbf24" font-family="monospace"
+        font-size="9" font-weight="bold">FPExt</text>
+
+  <!-- Consistency-check badge -->
+  <rect x="238" y="221" width="284" height="58" rx="8"
+        fill="#111827" stroke="#f59e0b" stroke-width="2"/>
+  <text x="380" y="240" text-anchor="middle" fill="#fbbf24"
+        font-family="monospace" font-size="11" font-weight="bold">
+    CONSISTENCY  CHECK
+  </text>
+  <text x="380" y="258" text-anchor="middle" fill="#fde68a"
+        font-family="monospace" font-size="10">
+    shadow_r  &#8596;  r
+  </text>
+  <text x="380" y="273" text-anchor="middle" fill="#fde68a"
+        font-family="monospace" font-size="9">
+    rel_error  =  |r &#8722; shadow_r|  /  |shadow_r|
+  </text>
+
+  <!-- FPExt labels below badge -->
+  <text x="163" y="292" fill="#fbbf24" font-family="monospace"
+        font-size="9" font-weight="bold">FPExt</text>
+  <text x="580" y="292" fill="#fbbf24" font-family="monospace"
+        font-size="9" font-weight="bold">FPExt</text>
+
+  <!-- ══════════════════════════════════════════
+       ORIGINAL SLAB  (blue — native precision)
+       ══════════════════════════════════════════ -->
+
+  <!-- 3D top face -->
+  <polygon points="70,307 650,307 690,282 110,282"
+           fill="#0d2d5a" stroke="#3b82f6" stroke-width="1.5"/>
+
+  <!-- Front face -->
+  <rect x="70" y="307" width="580" height="110"
+        fill="#0a1f3c" stroke="#3b82f6" stroke-width="1.5"/>
+
+  <!-- 3D right face -->
+  <polygon points="650,307 690,282 690,392 650,417"
+           fill="#071529" stroke="#3b82f6" stroke-width="1.5"/>
+
+  <!-- Right-face depth label -->
+  <text x="674" y="345" fill="#1d4ed8" font-family="monospace" font-size="9"
+        transform="rotate(-55,674,345)">float</text>
+
+  <!-- Header band -->
+  <rect x="70" y="307" width="580" height="24" fill="#1e3a6e"/>
+  <text x="365" y="323" text-anchor="middle" fill="#60a5fa"
+        font-family="monospace" font-size="11" font-weight="bold">
+    ORIGINAL  LAYER  —  native  floating-point  values
+  </text>
+
+  <!-- Content -->
+  <text x="98" y="349" fill="#bfdbfe" font-family="monospace" font-size="11">
+    a  :  float / double              (32-bit or 64-bit  IEEE 754)
+  </text>
+  <text x="98" y="369" fill="#bfdbfe" font-family="monospace" font-size="11">
+    b  :  float / double              (32-bit or 64-bit  IEEE 754)
+  </text>
+  <text x="98" y="391" fill="#93c5fd" font-family="monospace" font-size="11" font-weight="bold">
+    r  =  a  op  b                    (native  hardware  FP  instruction)
+  </text>
+
+  <!-- ══════════════════════════════════════════
+       OUTCOME  BADGES
+       ══════════════════════════════════════════ -->
+
+  <!-- WARN -->
+  <rect x="55" y="428" width="162" height="26" rx="5"
+        fill="#450a0a" stroke="#ef4444" stroke-width="1.5"/>
+  <text x="136" y="445" text-anchor="middle" fill="#ef4444"
+        font-family="monospace" font-size="10" font-weight="bold">
+    [WARN]  rel_error &gt; &#949;
+  </text>
+
+  <!-- SILENT -->
+  <rect x="228" y="428" width="175" height="26" rx="5"
+        fill="#052e16" stroke="#22c55e" stroke-width="1.5"/>
+  <text x="315" y="445" text-anchor="middle" fill="#22c55e"
+        font-family="monospace" font-size="10" font-weight="bold">
+    [SILENT]  rel_error &#8804; &#949;
+  </text>
+
+  <!-- Config -->
+  <rect x="490" y="428" width="218" height="26" rx="5"
+        fill="#1e1b4b" stroke="#6366f1" stroke-width="1.5"/>
+  <text x="599" y="438" text-anchor="middle" fill="#a5b4fc"
+        font-family="monospace" font-size="8.5">
+    NSAN_REL_EPSILON  =  1e-5
+  </text>
+  <text x="599" y="450" text-anchor="middle" fill="#818cf8"
+        font-family="monospace" font-size="8.5">
+    NSAN_VERBOSITY  =  1  |  2
+  </text>
+
+</svg>
