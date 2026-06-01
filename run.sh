@@ -1,4 +1,3 @@
-#!/usr/bin/env bash
 # run.sh — Run and evaluate all test cases in the tests/ directory
 
 REPO="$(cd "$(dirname "$0")" && pwd)"
@@ -13,7 +12,7 @@ echo "  NSan Modular Test Runner"
 echo "=================================================="
 echo ""
 
-# ── Check build outputs exist ──────────────────────────────────────────────
+
 if [ ! -f "$PLUGIN" ]; then
   echo "[ERROR] Plugin not found: $PLUGIN"
   echo "        Run ./build.sh first."
@@ -26,7 +25,7 @@ if [ ! -f "$RUNTIME" ]; then
   exit 1
 fi
 
-# ── Platform Detection and Flags ───────────────────────────────────────────
+
 SYSROOT_FLAG=""
 if [ "$(uname)" = "Darwin" ]; then
   SDK="$(xcrun --show-sdk-path 2>/dev/null || echo '')"
@@ -37,7 +36,7 @@ fi
 
 mkdir -p "$BINS_DIR"
 
-# ── Compile test files ─────────────────────────────────────────────────────
+
 echo "[1/2] Compiling test cases from tests/..."
 for test_file in "$TESTS_DIR"/*.cpp; do
   test_name=$(basename "$test_file" .cpp)
@@ -53,7 +52,7 @@ for test_file in "$TESTS_DIR"/*.cpp; do
       -fpass-plugin="$PLUGIN" \
       "$test_file" "$RUNTIME" -o "$bin_path" 2>&1
   else
-    # Compile without directly loading the plugin into the host compiler to avoid option registration collisions
+    
     $COMPILER -O1 -std=c++17 \
       "$test_file" "$RUNTIME" -o "$bin_path" 2>&1
   fi
@@ -66,7 +65,7 @@ done
 echo "      All test files compiled."
 echo ""
 
-# ── Run test files ─────────────────────────────────────────────────────────
+
 echo "[2/2] Running individual test binaries..."
 echo "--------------------------------------------------"
 for bin_path in "$BINS_DIR"/*; do

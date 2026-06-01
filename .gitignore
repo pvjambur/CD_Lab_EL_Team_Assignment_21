@@ -47,10 +47,7 @@ core.*
 # Build directories
 /build/
 /install/
+/tests/bins/
 
-# Claude Code — never commit these
-.claudeconfig
-memory/
-.claude/
 
 .DS_Store

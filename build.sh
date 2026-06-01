@@ -3,7 +3,7 @@
 
 REPO="$(cd "$(dirname "$0")" && pwd)"
 
-# Use an environment variable, fallback to common locations
+
 if [ -z "$LLVM_BUILD" ]; then
   if [ -d "$HOME/python/llvm-workspace/build" ]; then
     LLVM_BUILD="$HOME/python/llvm-workspace/build"
@@ -23,18 +23,18 @@ echo "  LLVM: $LLVM_BUILD"
 echo "=================================================="
 echo ""
 
-# ── Clean up project artifacts ─────────────────────────────────────────────
+
 echo "[1/4] Cleaning project-local build artifacts..."
 rm -rf "$REPO/build"
 echo "      Done."
 
-# ── Reset build directory ──────────────────────────────────────────────────
+
 echo "[2/4] Resetting build directory..."
 mkdir -p "$REPO/build"
 cd "$REPO/build"
 echo "      Done."
 
-# ── Configure CMake ────────────────────────────────────────────────────────
+
 echo "[3/4] Running CMake..."
 cmake "$REPO" -G Ninja \
   -DCMAKE_BUILD_TYPE=RelWithDebInfo \
@@ -50,8 +50,7 @@ if [ $? -ne 0 ]; then
 fi
 echo "      CMake configure succeeded."
 
-# ── Build ──────────────────────────────────────────────────────────────────
-echo "[4/4] Building with ninja..."
+
 ninja -v
 if [ $? -ne 0 ]; then
   echo "[ERROR] Build failed."

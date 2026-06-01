@@ -26,21 +26,19 @@ echo ""
 
 mkdir -p "$REPO/build/benchmarks"
 
-# 5 test programs for baseline evaluation
 PROGRAMS=("tc1_cancellation" "tc2_naive_sum" "tc3_kahan" "tc4_alternating" "tc7_variance")
 
 for prog in "${PROGRAMS[@]}"; do
   src_file="$REPO/tests/${prog}.cpp"
   
-  # 1. Compile uninstrumented
   $COMPILER $SYSROOT_FLAG -O1 -std=c++17 \
     -nostdinc++ -isystem "$SDK/usr/include/c++/v1" -isystem "$SDK/usr/include" \
     "$src_file" "$RUNTIME" -o "$REPO/build/benchmarks/${prog}_plain" 2>/dev/null
   
-  # 2. Compile instrumented
   ./nsan-clang++ $SYSROOT_FLAG -O1 -std=c++17 \
     -nostdinc++ -isystem "$SDK/usr/include/c++/v1" -isystem "$SDK/usr/include" \
     -fsanitize=numerical "$src_file" -o "$REPO/build/benchmarks/${prog}_nsan" 2>/dev/null
+
 
   echo "Benchmarking: $prog"
   
