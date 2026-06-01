@@ -10,7 +10,7 @@
 [![License](https://img.shields.io/badge/License-LLVM-lightgrey?style=for-the-badge)](LICENSE)
 [![Tests](https://img.shields.io/badge/Tests-12%20Cases-success?style=for-the-badge)](tests/)
 
-> *"Find numerical instabilities before they find you."*
+> *"Automated detection of floating-point numerical instability in compiled applications."*
 
 </div>
 
@@ -18,7 +18,7 @@
 
 ## What is NSan?
 
-NSan instruments your C/C++ program at compile time. Every floating-point operation gets a **shadow twin** running in parallel at higher precision. When the two diverge past a configurable threshold, NSan reports exactly where, what the error is, and by how much — without changing a single line of your source code.
+NSan instruments C/C++ applications at compile time. Every floating-point operation is mapped to a parallel **shadow twin** executing in higher precision. When the native and shadow values diverge beyond a configurable threshold, NSan reports the exact location, operation type, and error magnitude without requiring modifications to the source code.
 
 ---
 
@@ -153,7 +153,7 @@ graph LR
 ```
 CD_Lab_EL_Team_Assignment_21/
 │
-├── README.md               ← you are here
+├── README.md               ← Main landing page
 ├── DESIGN.md               ← approach + alternatives
 ├── IMPLEMENTATION.md       ← LLVM pass internals
 ├── EVALUATION.md           ← benchmark results + test case analysis
@@ -276,19 +276,19 @@ cd CD_Lab_EL_Team_Assignment_21
 ./run.sh
 ```
 
-### Instrument Your Own Code
+### Instrumenting Target Applications
 
 ```bash
-# Compile with NSan
+# Compile target application with NSan
 ./nsan-clang++ -fsanitize=numerical my_program.cpp -o my_program
 
-# Run — precision errors surface immediately
+# Execute application to monitor precision stability
 ./my_program
 
-# Tune tolerance
+# Configure custom precision sensitivity threshold
 NSAN_REL_EPSILON=1e-6 ./my_program
 
-# Increase verbosity
+# Increase runtime diagnostic verbosity
 NSAN_VERBOSITY=2 ./my_program
 ```
 

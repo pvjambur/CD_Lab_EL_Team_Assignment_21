@@ -51,7 +51,7 @@ fi
 echo "      CMake configure succeeded."
 
 
-ninja -v
+ninja
 if [ $? -ne 0 ]; then
   echo "[ERROR] Build failed."
   exit 1

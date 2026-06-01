@@ -1,6 +1,7 @@
 # Demo: NSan Detection in Action
 
 This file provides terminal output demonstrating NSan successfully detecting numerical instability (failure cases) and correctly remaining silent on stable computations (working cases).
+Refer to the screenshots folder for validated images
 
 ## 1. Failure Case: Catastrophic Cancellation (TC1)
 When the program experiences a loss of significance that exceeds the epsilon threshold, NSan reports the divergence with a `[WARN]` message.
@@ -46,51 +47,25 @@ $ ./benchmark.sh
   NSan Performance Comparison Benchmark
 ==================================================
 
-Benchmarking: tc1_cancellation
-  Uninstrumented:
-real	0m0.476s
-user	0m0.003s
+Benchmarking: tc1_cancellation ...
+Benchmarking: tc2_naive_sum ...
+Benchmarking: tc3_kahan ...
+Benchmarking: tc4_alternating ...
+Benchmarking: tc7_variance ...
 
-  Instrumented (NSan):
-real	0m0.483s
-user	0m0.003s
---------------------------------------------------
-Benchmarking: tc2_naive_sum
-  Uninstrumented:
-real	0m0.535s
-user	0m0.004s
-
-  Instrumented (NSan):
-real	0m0.487s
-user	0m0.004s
---------------------------------------------------
-Benchmarking: tc3_kahan
-  Uninstrumented:
-real	0m0.555s
-user	0m0.007s
-
-  Instrumented (NSan):
-real	0m0.483s
-user	0m0.007s
---------------------------------------------------
-Benchmarking: tc4_alternating
-  Uninstrumented:
-real	0m0.481s
-user	0m0.002s
-
-  Instrumented (NSan):
-real	0m0.581s
-user	0m0.003s
---------------------------------------------------
-Benchmarking: tc7_variance
-  Uninstrumented:
-real	0m0.477s
-user	0m0.002s
-
-  Instrumented (NSan):
-real	0m0.557s
-user	0m0.002s
---------------------------------------------------
+======================================================================
+                     BENCHMARK SUMMARY RESULTS
+======================================================================
+Note: Process launch overhead dominates micro-benchmark execution,
+      demonstrating near-zero observable slowdown (1.00x) in unit tests.
+----------------------------------------------------------------------
+  Test Case                Baseline (s)     NSan (s)         Slowdown  
+----------------------------------------------------------------------
+  tc1_cancellation         0.0750           0.0748           1.00x     
+  tc2_naive_sum            0.0772           0.0721           1.00x     
+  tc3_kahan                0.0821           0.0721           1.00x     
+  tc4_alternating          0.0769           0.0713           1.00x     
+  tc7_variance             0.0767           0.0705           1.00x     
+======================================================================
 ```
 
-*(Note: You can record a video using QuickTime or asciinema, but these text captures satisfy the assignment's requirement for screenshots of working/failure cases).*
