@@ -49,5 +49,59 @@ core.*
 /install/
 /tests/bins/
 
+# Local tooling
+.claude/
+.claudeconfig
+# Build artifacts
+build/
+dist/
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# LLVM/Clang generated
+*.ll
+*.bc
+*.s
+*.ast
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+test_result*
+*.gcda
+*.gcno
+*.coverage
+
+# Documentation generated
+docs/_build/
+doxygen/
+
+# Temporary files
+*.tmp
+*.log
+core
+core.*
+
+# Build directories
+/build/
+/install/
+/tests/bins/
+
 
 .DS_Store
