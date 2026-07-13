@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NSan — Live Demo</title>
+<link rel="stylesheet" href="css/style.css?v=6a535cd17">
+
+
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap topbar-inner">
+    <div class="brand">
+      <span class="brand-mark">NS</span>
+      <div>
+        <div class="brand-title">NSan</div>
+        <div class="brand-sub">Numerical Stability Sanitizer — Live Demo</div>
+      </div>
+    </div>
+    <nav>
+      <a href="#flow" class="nav-tab active" data-tab="flow">Pipeline</a>
+      <a href="#ir" class="nav-tab" data-tab="ir">Instrumentation</a>
+      <a href="#lab" class="nav-tab" data-tab="lab">Shadow Lab</a>
+      <a href="#tests" class="nav-tab" data-tab="tests">Test Suite</a>
+      <a href="#perf" class="nav-tab" data-tab="perf">Performance</a>
+    </nav>
+
+  </div>
+</header>
+
+<div class="status-strip" id="status-strip">
+  <span class="wrap status-inner">
+    <span class="status-dot" id="status-dot"></span>
+    <span id="status-text">Checking for local server…</span>
+  </span>
+</div>
+
+<main>
+
+  <section class="intro wrap">
+    <p class="kicker">LLVM Compiler Instrumentation · Dynamic Numerical Stability Analysis</p>
+    <h1>Compile-Time Floating-Point Error Detection Engine</h1>
+
+    <p class="intro-text">
+      This verification environment operates in two execution modes: <strong>Simulated</strong> (pure JavaScript in-browser floating-point modeling) and <strong>Live Toolchain</strong> (direct execution of the custom <code>nsan-clang++</code> compiler wrapper, the LLVM pass plugin <code>libnsan_pass.so</code>, and the shadow memory runtime library <code>libnsan_runtime.a</code>). Connecting the local verification server unlocks live compiler execution and dynamic numerical analysis.
+    </p>
+  </section>
+
+
+  <section id="flow" class="wrap tab-section active">
+
+    <h2><span class="step-no">1</span>Compiler Transformation & Execution Pipeline</h2>
+
+    <p class="section-lede">Source code remains unmodified throughout the pipeline. The sanitizer intercepts the intermediate representation (LLVM IR) during optimization, clones scalar floating-point instructions into parallel double-precision shadow operations, and forwards the instrumented module to code generation.</p>
+
+    <div class="flowchart-card">
+      <!--
+        LAYOUT (all in SVG user units, viewBox 800×900):
+          Main column  : x=270 w=260  centre=400  right=530
+          Side-right   : x=570 w=200  centre=670  right=770   gap=40px from main
+          Runtime-left : x=15  w=190  centre=110  right=205
+          Runtime-right: x=595 w=190  centre=690  right=785
+          check_cons   : x=250 w=300  centre=400  right=550
+
+        Row Y positions (top / height / bottom / centre_y):
+          source.cpp        16 / 52 / 68  / 42
+          Clang frontend   100 / 52 /152  /126
+          NSanPass         184 / 54 /238  /211
+          Instrumented IR  270 / 54 /324  /297
+          Codegen+Linker   356 / 54 /410  /383
+          Native binary    442 / 54 /496  /469
+          Program exec     528 / 54 /582  /555
+          Runtime nodes    618 / 50 /668  /643
+          check_consist    716 / 54 /770  /743
+          rel_err>ε        816 / 62 /878  /847
+      -->
+      <svg id="flowchart" viewBox="0 0 800 960" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5"
+                  markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,1 L9,5 L0,9 z" fill="var(--line-strong)"/>
+          </marker>
+        </defs>
+
+        <!-- Gap = 42px between each node row
+             source.cpp        y=16   h=52  bot=68
+             Clang frontend    y=110  h=52  bot=162
+             NSanPass          y=204  h=54  bot=258
+             Instrumented IR   y=300  h=54  bot=354
+             Codegen+Linker    y=396  h=54  bot=450
+             Native binary     y=492  h=54  bot=546
+             Program exec      y=588  h=54  bot=642
+             check_consist     y=684  h=54  bot=738  cy=711
+             Diamond           cy=808  top=760  bot=856
+             [WARN]            y=876  h=44  bot=920
+        -->
+        <g stroke="var(--line-strong)" stroke-width="1.8" fill="none" marker-end="url(#arr)">
+          <line x1="400" y1="68"  x2="400" y2="108"/>  <!-- source → Clang       -->
+          <line x1="400" y1="162" x2="400" y2="202"/>  <!-- Clang → NSanPass     -->
+          <line x1="400" y1="258" x2="400" y2="298"/>  <!-- NSanPass → Instr IR  -->
+          <line x1="400" y1="354" x2="400" y2="394"/>  <!-- Instr IR → Codegen   -->
+          <line x1="400" y1="450" x2="400" y2="490"/>  <!-- Codegen → Native     -->
+          <line x1="400" y1="546" x2="400" y2="586"/>  <!-- Native → Prog exec   -->
+          <line x1="400" y1="642" x2="400" y2="682"/>  <!-- Prog exec → check()  -->
+          <line x1="400" y1="738" x2="400" y2="758"/>  <!-- check() → diamond    -->
+          <line x1="400" y1="856" x2="400" y2="874"/>  <!-- diamond YES → [WARN] -->
+        </g>
+
+        <!-- YES/NO branch arrows -->
+        <g stroke="var(--line-strong)" stroke-width="1.6" fill="none" marker-end="url(#arr)">
+          <line x1="520" y1="808" x2="558" y2="808"/>  <!-- NO → stays silent -->
+        </g>
+
+        <!-- YES / NO labels -->
+        <text x="408" y="868" font-family="Inter,sans-serif" font-size="10" font-weight="600" fill="var(--warn)">YES</text>
+        <text x="524" y="804" font-family="Inter,sans-serif" font-size="10" font-weight="600" fill="var(--pass)">NO</text>
+
+        <!-- ═══ SIDE NODE CONNECTORS (dashed) ═══ -->
+        <g stroke="var(--muted-2)" stroke-width="1.4" fill="none" stroke-dasharray="5,3" marker-end="url(#arr)">
+          <!-- ShadowValueMap → NSanPass right edge  (same row cy=231) -->
+          <line x1="570" y1="231" x2="532" y2="231"/>
+          <!-- libnsan_runtime.a → Codegen right edge  (same row cy=423) -->
+          <line x1="570" y1="423" x2="532" y2="423"/>
+          <!-- Shadow stack right (170) → check_consist left (270) at cy=711 -->
+          <line x1="170" y1="711" x2="268" y2="711"/>
+          <!-- Shadow memory left (635) → check_consist right (530) at cy=711 -->
+          <line x1="635" y1="711" x2="532" y2="711"/>
+        </g>
+
+        <!-- Connector labels -->
+        <g font-family="Inter,sans-serif" font-size="9.5" font-weight="600" text-anchor="middle" fill="var(--text)">
+          <text x="220" y="703">on call / return</text>
+          <text x="582" y="703">on heap load / store</text>
+        </g>
+
+
+        <!-- source.cpp: y=16 bot=68 -->
+        <g class="node">
+          <rect x="270" y="16" width="260" height="52" rx="8"/>
+          <text x="400" y="38" class="n-title">source.cpp</text>
+          <text x="400" y="56" class="n-sub">unmodified C++ — z = x + y;</text>
+        </g>
+
+        <!-- Clang frontend: y=110 bot=162 -->
+        <g class="node">
+          <rect x="270" y="110" width="260" height="52" rx="8"/>
+          <text x="400" y="132" class="n-title">Clang frontend</text>
+          <text x="400" y="150" class="n-sub">parses source → LLVM IR</text>
+        </g>
+
+        <!-- NSanPass.cpp: y=204 bot=258 cy=231 -->
+        <g class="node node-highlight">
+          <rect x="270" y="204" width="260" height="54" rx="8"/>
+          <text x="400" y="226" class="n-title">NSanPass.cpp</text>
+          <text x="400" y="245" class="n-sub">Function Pass — visits every FP op</text>
+        </g>
+
+        <!-- ShadowValueMap: side-right of NSanPass, y=208 cy=231 -->
+        <g class="node node-side">
+          <rect x="570" y="208" width="200" height="46" rx="8"/>
+          <text x="670" y="228" class="n-title">ShadowValueMap</text>
+          <text x="670" y="244" class="n-sub">DenseMap&lt;Value*, Value*&gt;</text>
+        </g>
+
+        <!-- Instrumented IR: y=300 bot=354 -->
+        <g class="node node-highlight">
+          <rect x="270" y="300" width="260" height="54" rx="8"/>
+          <text x="400" y="322" class="n-title">Instrumented IR</text>
+          <text x="400" y="341" class="n-sub">shadow ops + check() at each store</text>
+        </g>
+
+        <!-- Codegen + Linker: y=396 bot=450 cy=423 -->
+        <g class="node">
+          <rect x="270" y="396" width="260" height="54" rx="8"/>
+          <text x="400" y="418" class="n-title">Codegen + Linker</text>
+          <text x="400" y="437" class="n-sub">emits native machine code</text>
+        </g>
+
+        <!-- libnsan_runtime.a: side-right of Codegen, y=400 cy=423 -->
+        <g class="node node-side">
+          <rect x="570" y="400" width="200" height="46" rx="8"/>
+          <text x="670" y="420" class="n-title">libnsan_runtime.a</text>
+          <text x="670" y="436" class="n-sub">linked in statically</text>
+        </g>
+
+        <!-- Native binary: y=492 bot=546 -->
+        <g class="node">
+          <rect x="270" y="492" width="260" height="54" rx="8"/>
+          <text x="400" y="514" class="n-title">Native binary</text>
+          <text x="400" y="533" class="n-sub">float lane + shadow lane compiled in</text>
+        </g>
+
+        <!-- Program execution: y=588 bot=642 -->
+        <g class="node">
+          <rect x="270" y="588" width="260" height="54" rx="8"/>
+          <text x="400" y="610" class="n-title">Program execution</text>
+          <text x="400" y="629" class="n-sub">both lanes advance in lockstep</text>
+        </g>
+
+        <!-- Shadow stack TLS: side-LEFT of check_consistency, y=684 cy=711 right=220 -->
+        <g class="node node-runtime">
+          <rect x="10" y="684" width="160" height="54" rx="8"/>
+          <text x="90" y="706" class="n-title">Shadow stack (TLS)</text>
+          <text x="90" y="724" class="n-sub">thread-local, no locks</text>
+        </g>
+
+        <!-- __nsan_check_consistency(): y=684 h=54 bot=738 cy=711 -->
+        <g class="node node-highlight">
+          <rect x="270" y="684" width="260" height="54" rx="8"/>
+          <text x="400" y="706" class="n-title">__nsan_check_consistency()</text>
+          <text x="400" y="725" class="n-sub">rel_err = |native − shadow| / |shadow|</text>
+        </g>
+
+        <!-- Shadow memory map: side-RIGHT of check_consistency, y=684 cy=711 left=635 -->
+        <g class="node node-runtime">
+          <rect x="635" y="684" width="155" height="54" rx="8"/>
+          <text x="712" y="706" class="n-title">Shadow memory map</text>
+          <text x="712" y="724" class="n-sub">heap addr → shadow addr</text>
+        </g>
+
+        <!-- Diamond: centre=(400,808) half-w=120 half-h=48
+             top=(400,760) right=(520,808) bottom=(400,856) left=(280,808) -->
+        <g class="node-decision">
+          <polygon points="400,760 520,808 400,856 280,808"/>
+          <text x="400" y="802" class="n-title">rel_err &gt; ε ?</text>
+          <text x="400" y="820" class="n-sub">compare vs threshold</text>
+        </g>
+
+        <!-- YES → [WARN] fires: y=876 h=54 -->
+        <g class="node node-output">
+          <rect x="260" y="876" width="280" height="54" rx="8"/>
+          <text x="400" y="898" class="n-title">[WARN] fires</text>
+          <text x="400" y="918" class="n-sub">prints numerical inconsistency to stderr</text>
+        </g>
+
+        <!-- NO → stays silent: right of diamond, y=788 h=40 cy=808 -->
+        <g class="node node-pass">
+          <rect x="558" y="788" width="160" height="40" rx="8"/>
+          <text x="638" y="804" class="n-title">stays silent</text>
+          <text x="638" y="820" class="n-sub">rel_err ≤ ε</text>
+        </g>
+
+      </svg>
+    </div>
+  </section>
+
+
+
+  <section id="ir" class="wrap tab-section">
+
+
+    <h2><span class="step-no">2</span>Intermediate Representation Instrumentation</h2>
+    <p class="section-lede">
+      <strong>Simulated</strong> mode demonstrates the textbook SSA transformation pattern.
+      <strong>Live Toolchain</strong> mode compiles the target source module twice — once using standard uninstrumented <code>clang++ -O1</code>
+      and once using <code>-fpass-plugin=libnsan_pass.so</code> — to display the exact three-column transformation produced by the pass.
+    </p>
+
+
+    <div class="ir-explainer">
+      <div class="ir-explainer-title">Instrumentation Phase Breakdown (3-Step Pass Transformation)</div>
+
+      <div class="ir-explainer-grid">
+        <div class="ir-step-box step-math">
+          <div class="step-badge badge-math">1. SHADOW MATH</div>
+          <p>Every 32-bit <code>float</code> arithmetic instruction (<code>fadd</code>, <code>fsub</code>, <code>fmul</code>, <code>fdiv</code>) is intercepted. Operands are extended to 64-bit (<code>fpext to double</code>) and evaluated in parallel high precision.</p>
+        </div>
+        <div class="ir-step-box step-mem">
+          <div class="step-badge badge-mem">2. SHADOW MEMORY</div>
+          <p>When floating-point variables are stored or loaded (<code>alloca</code>, <code>store</code>, <code>load</code>), calls to <code>__nsan_shadow_ptr_store</code> and <code>load</code> synchronize the 64-bit shadow double in TLS shadow memory.</p>
+        </div>
+        <div class="ir-step-box step-check">
+          <div class="step-badge badge-check">3. CONSISTENCY CHECK</div>
+          <p>Before critical branches, returns, or stores, <code>__nsan_check_consistency(float %z, double %z.shadow)</code> verifies if <code>|f - d| / |d| &gt; ε</code>. If divergence exceeds threshold, a warning fires to <code>stderr</code>.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="ir-card">
+      <div class="ir-toolbar">
+        <div class="ir-tabs" id="ir-mode-tabs">
+          <button class="ir-tab active" data-mode="sim">Simulated</button>
+          <button class="ir-tab" data-mode="live">Live (real plugin)</button>
+        </div>
+        <select id="ir-tc-select" class="tc-select"></select>
+      </div>
+      <div class="ir-toolbar">
+        <span class="ir-filename" id="ir-filename">tc1_cancellation.cpp → tc1_cancellation.ll</span>
+      </div>
+      <div class="ir-legend-bar">
+        <span class="legend-label">Inserted Pass Operations:</span>
+        <span class="legend-item"><span class="legend-dot dot-math"></span>SHADOW MATH (double arithmetic &amp; fpext)</span>
+        <span class="legend-item"><span class="legend-dot dot-mem"></span>SHADOW MEM (shadow_ptr_store / load)</span>
+        <span class="legend-item"><span class="legend-dot dot-check"></span>CHECK (__nsan_check_consistency)</span>
+      </div>
+      <div class="ir-grid-container">
+        <div class="ir-pane">
+          <div class="ir-pane-header">
+            <span>Original C++ Source</span>
+            <span class="badge-orig">source code</span>
+          </div>
+          <pre class="ir-code" id="ir-code-src">Loading…</pre>
+        </div>
+        <div class="ir-pane">
+          <div class="ir-pane-header">
+            <span>Original IR</span>
+            <span class="badge-orig">uninstrumented</span>
+          </div>
+          <pre class="ir-code" id="ir-code-orig">Loading…</pre>
+        </div>
+        <div class="ir-pane">
+          <div class="ir-pane-header">
+            <span>Instrumented IR</span>
+            <span class="badge-instr">+ NSanPass ops</span>
+          </div>
+          <pre class="ir-code" id="ir-code-instr">Loading…</pre>
+        </div>
+      </div>
+
+      <div class="ir-status" id="ir-status"></div>
+
+    </div>
+  </section>
+
+  <section id="lab" class="wrap tab-section">
+
+    <h2><span class="step-no">3</span>Interactive Shadow Lane Simulation</h2>
+
+    <p class="section-lede">Select operand values and a target floating-point operation. In <strong>Simulated</strong> mode, 32-bit single precision is modeled using IEEE 754 float rounding via <code>Math.fround()</code>. In <strong>Live Toolchain</strong> mode, a micro-benchmark C++ source file is generated, compiled using <code>nsan-clang++ -fsanitize=numerical</code>, and executed to capture exact runtime verification outputs and numerical divergence warnings.</p>
+
+
+    <div class="lab-grid">
+      <div class="lab-controls">
+        <div class="field">
+          <label for="opA">Operand A</label>
+          <input type="number" id="opA" value="1000000.12544" step="any">
+
+        </div>
+        <div class="field">
+          <label for="opB">Operand B</label>
+          <input type="number" id="opB" value="1000000.0" step="any">
+        </div>
+        <div class="field">
+          <label>Operation</label>
+          <div class="opbtns">
+            <button data-op="+">+</button>
+            <button data-op="-" class="active">−</button>
+            <button data-op="*">×</button>
+            <button data-op="/">÷</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="epsSlider">Epsilon threshold <span class="rangeval" id="epsLbl">1e-5</span></label>
+          <input type="range" id="epsSlider" min="1" max="9" value="5" step="1">
+        </div>
+        <div class="field">
+          <label>Scenario presets</label>
+          <div class="presets">
+            <button data-a="1000000.12544" data-b="1000000.0" data-op="-">Catastrophic cancellation</button>
+
+            <button data-a="0.1" data-b="0.2" data-op="+">Classic 0.1 + 0.2</button>
+            <button data-a="16777216" data-b="1" data-op="+">Mantissa overflow (2²⁴+1)</button>
+            <button data-a="100000000" data-b="1" data-op="/">Stable division</button>
+            <button data-a="1.618034" data-b="1.618033" data-op="-">Near-root subtraction</button>
+          </div>
+        </div>
+        <button class="run-live-btn" id="lab-run-live">▶ Run on real compiler</button>
+      </div>
+
+      <div class="race-card">
+        <div class="race-head">
+          <div class="lab-expression mono" id="lab-expr">1000000.12544 − 1000000</div>
+          <span class="mode-badge" id="lab-mode-badge">simulated</span>
+        </div>
+        <div class="lane float">
+          <span class="tag">float32</span>
+          <div class="track"><div class="fill" id="lab-float-fill"></div></div>
+          <span class="val mono" id="lab-float-val">—</span>
+        </div>
+        <div class="lane shadow">
+          <span class="tag">shadow·f64</span>
+          <div class="track"><div class="fill" id="lab-shadow-fill"></div></div>
+          <span class="val mono" id="lab-shadow-val">—</span>
+        </div>
+        <div class="comparator">
+          <div class="comparator-label"><span>relative error</span><span id="lab-relerr-lbl" class="mono">—</span></div>
+          <div class="meter"><div class="bar" id="lab-meter"></div></div>
+          <div class="status-line">
+            <span class="badge" id="lab-badge">—</span>
+          </div>
+        </div>
+        <pre class="terminal" id="lab-terminal" style="display:none;"></pre>
+      </div>
+    </div>
+  </section>
+
+  <section id="tests" class="wrap tab-section">
+
+    <h2><span class="step-no">4</span>Numerical Stability Benchmark Suite</h2>
+
+    <p class="section-lede">Verification requires both sensitivity and specificity: 7 test cases evaluate true positive detection on numerical cancellation and catastrophic instability, while 5 test cases verify zero false positives on well-conditioned algorithms. Selecting any case runs the full compilation and execution pipeline.</p>
+    <div class="filters">
+      <button class="active" data-filter="all">All 12</button>
+      <button data-filter="warn">7 Warn</button>
+      <button data-filter="silent">5 Silent</button>
+    </div>
+    <div class="tc-grid" id="tc-grid"></div>
+    <div class="tc-detail" id="tc-detail"></div>
+  </section>
+
+  <section id="perf" class="wrap tab-section">
+
+    <h2><span class="step-no">5</span>Runtime Overhead & Scaling Analysis</h2>
+
+    <p class="section-lede">Log-scale runtime overhead comparison relative to an uninstrumented baseline execution across standard scientific computing kernels.</p>
+    <div id="perf-chart"></div>
+    <p class="perf-note">Micro-benchmarks on tiny programs measure ≈1.00× — where OS process-launch overhead (70–80ms) dominates sub-millisecond computation. At realistic scientific workload scales, the true instruction-level cost of 2–4× becomes apparent.</p>
+  </section>
+
+</main>
+
+<footer class="wrap">NSan — Numerical Stability Sanitizer · <span id="footer-mode">simulated modeling mode</span></footer>
+
+<script src="js/main.js?v=6a535cd7"></script>
+
+</body>
+</html>
