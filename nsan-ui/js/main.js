@@ -636,12 +636,386 @@ function initNavigationTabs() {
   });
 
   const initialHash = location.hash.replace('#', '');
-  const validTabs = ['flow', 'ir', 'lab', 'tests', 'perf'];
+  const validTabs = ['flow', 'ir', 'lab', 'tests', 'perf', 'ci'];
   if (initialHash && validTabs.includes(initialHash)) {
     switchTab(initialHash);
   } else {
     switchTab('flow');
   }
+}
+
+// ============ CI Monitor ============
+
+const CI_POLL_MS = 5000;
+let ciPollingTimer = null;
+let ciPollingRunId = null;
+
+function ciTimeSince(dateStr) {
+  if (!dateStr) return '';
+  const sec = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  if (sec < 60) return `${sec}s ago`;
+  if (sec < 3600) return `${Math.floor(sec / 60)}m ago`;
+  if (sec < 86400) return `${Math.floor(sec / 3600)}h ago`;
+  return `${Math.floor(sec / 86400)}d ago`;
+}
+
+function ciStatusBadge(conclusion, status) {
+  if (status === 'queued') return `<span class="ci-run-badge ci-badge-queued">⏳ QUEUED</span>`;
+  if (status === 'in_progress') return `<span class="ci-run-badge ci-badge-running">⟳ RUNNING</span>`;
+  if (status === 'completed') {
+    if (conclusion === 'success') return `<span class="ci-run-badge ci-badge-success">✓ PASSED</span>`;
+    if (conclusion === 'failure') return `<span class="ci-run-badge ci-badge-failure">✗ FAILED</span>`;
+    if (conclusion === 'cancelled') return `<span class="ci-run-badge ci-badge-cancelled">⊘ CANCELLED</span>`;
+    return `<span class="ci-run-badge ci-badge-queued">${conclusion || status}</span>`;
+  }
+  return `<span class="ci-run-badge ci-badge-queued">${status || '…'}</span>`;
+}
+
+function ciTCGridHTML(ciStatus, ciConclusion, tcResults) {
+  return '<div class="ci-tc-grid">' + testCases.map(tc => {
+    const expected = tc.status;
+    let state, label;
+
+    if (ciStatus === 'queued' || ciStatus === 'in_progress') {
+      state = 'processing';
+      label = '⟳ RUNNING';
+    } else if (ciStatus === 'completed') {
+      const parsed = tcResults && tcResults[tc.id];
+      if (parsed) {
+        if (parsed === expected) {
+          state = 'passed';
+          label = expected === 'warn' ? '✓ WARN' : '✓ SILENT';
+        } else {
+          state = 'failed';
+          label = `✗ GOT ${parsed.toUpperCase()}`;
+        }
+      } else if (ciConclusion === 'success') {
+        state = 'passed';
+        label = expected === 'warn' ? '✓ WARN' : '✓ SILENT';
+      } else if (ciConclusion === 'failure') {
+        state = 'unknown';
+        label = '? CHECK LOGS';
+      } else {
+        state = 'unknown';
+        label = '?';
+      }
+    } else {
+      state = 'unknown';
+      label = '?';
+    }
+
+    return `<div class="ci-tc-cell ci-tc-${state}" title="${tc.name} — expected: ${expected}">
+      <div class="ci-tc-id">${tc.id}</div>
+      <div class="ci-tc-label">${label}</div>
+    </div>`;
+  }).join('') + '</div>';
+}
+
+function ciStepHTML(step) {
+  let cls = 'ci-step-pending', icon = '○';
+  if (step.status === 'in_progress')       { cls = 'ci-step-running';  icon = '⟳'; }
+  if (step.conclusion === 'success')        { cls = 'ci-step-success';  icon = '✓'; }
+  if (step.conclusion === 'failure')        { cls = 'ci-step-failure';  icon = '✗'; }
+  if (step.conclusion === 'skipped')        { cls = 'ci-step-skipped';  icon = '⊘'; }
+  if (step.conclusion === 'cancelled')      { cls = 'ci-step-skipped';  icon = '⊘'; }
+  return `<div class="ci-step ${cls}">
+    <span class="ci-step-icon">${icon}</span>
+    <span class="ci-step-name">${escapeHTML(step.name || '')}</span>
+  </div>`;
+}
+
+function ciRunHTML(run) {
+  const sha = (run.head_sha || '').slice(0, 7);
+  const msg = ((run.head_commit && run.head_commit.message) || '').split('\n')[0].slice(0, 60);
+  const event = run.event || '';
+  const branch = run.head_branch || '';
+  const num = run.run_number || run.id;
+  const timeAgo = ciTimeSince(run.updated_at || run.created_at);
+  const badge = ciStatusBadge(run.conclusion, run.status);
+
+  return `<div class="ci-run-card" id="ci-run-${run.id}" data-status="${run.status || ''}" data-conclusion="${run.conclusion || ''}">
+  <div class="ci-run-header" onclick="ciExpandRun(${run.id})">
+    <div class="ci-run-left">
+      ${badge}
+      <span class="ci-run-num mono">Run #${num}</span>
+      <span class="ci-run-event mono">${escapeHTML(event)} → ${escapeHTML(branch)}</span>
+    </div>
+    <div class="ci-run-right">
+      <span class="ci-run-sha mono">${escapeHTML(sha)}</span>
+      <span class="ci-run-msg">${escapeHTML(msg)}</span>
+      <span class="ci-run-time mono">${timeAgo}</span>
+      <span class="ci-run-expand-icon" id="ci-icon-${run.id}">▸</span>
+    </div>
+  </div>
+  <div class="ci-run-detail" id="ci-detail-${run.id}" style="display:none">
+    <div class="ci-detail-loading">Loading job details…</div>
+  </div>
+</div>`;
+}
+
+async function ciExpandRun(runId) {
+  const detail = document.getElementById(`ci-detail-${runId}`);
+  const icon   = document.getElementById(`ci-icon-${runId}`);
+  if (!detail) return;
+
+  if (detail.style.display !== 'none') {
+    detail.style.display = 'none';
+    if (icon) icon.textContent = '▸';
+    return;
+  }
+  detail.style.display = 'block';
+  if (icon) icon.textContent = '▾';
+  detail.innerHTML = '<div class="ci-detail-loading">Loading job details…</div>';
+
+  try {
+    const res  = await fetch(`/api/ci/jobs?run_id=${runId}`);
+    const data = await res.json();
+
+    if (data.error) {
+      detail.innerHTML = `<div class="ci-error">${escapeHTML(data.error)}</div>`;
+      return;
+    }
+
+    const card        = document.getElementById(`ci-run-${runId}`);
+    const ciStatus    = (card && card.dataset.status)     || 'unknown';
+    const ciConclusion= (card && card.dataset.conclusion) || '';
+    const jobs        = data.jobs || [];
+    const buildJob    = jobs.find(j => j.name === 'build') || jobs[0];
+    const jobStatus   = (buildJob && buildJob.status)    || ciStatus;
+    const jobConc     = (buildJob && buildJob.conclusion)|| ciConclusion;
+    const jobId       = buildJob && buildJob.id;
+
+    const stepsHTML = buildJob && buildJob.steps && buildJob.steps.length
+      ? buildJob.steps.map(ciStepHTML).join('')
+      : '<div class="ci-no-steps">No step data available yet.</div>';
+
+    const logsBtn = jobId
+      ? `<button class="ci-logs-btn" id="ci-logs-btn-${runId}" onclick="ciLoadLogs(${jobId},${runId})">📋 Load CI Logs &amp; Parse TC Results</button>`
+      : '';
+
+    detail.innerHTML = `
+<div class="ci-detail-inner">
+  <div class="ci-tc-section">
+    <div class="ci-section-label">Test Case Results (12 cases)</div>
+    <div id="ci-tc-grid-${runId}">${ciTCGridHTML(jobStatus, jobConc, null)}</div>
+    ${logsBtn}
+    <div class="ci-log-msg" id="ci-log-msg-${runId}"></div>
+  </div>
+  <div class="ci-steps-section">
+    <div class="ci-section-label">Build Steps</div>
+    <div class="ci-steps-list" id="ci-steps-${runId}">${stepsHTML}</div>
+  </div>
+</div>
+<div class="ci-log-output" id="ci-log-output-${runId}" style="display:none">
+  <div class="ci-section-label" style="padding:14px 20px 0">CI Log Output (parsed from GitHub Actions)</div>
+  <pre class="terminal ci-log-pre" id="ci-log-pre-${runId}"></pre>
+</div>`;
+
+    if (jobStatus === 'in_progress' || jobStatus === 'queued') {
+      ciStartPolling(runId);
+    }
+  } catch (e) {
+    detail.innerHTML = `<div class="ci-error">Failed to load job details: ${escapeHTML(String(e))}</div>`;
+  }
+}
+
+async function ciLoadLogs(jobId, runId) {
+  const btn    = document.getElementById(`ci-logs-btn-${runId}`);
+  const msgEl  = document.getElementById(`ci-log-msg-${runId}`);
+  const outEl  = document.getElementById(`ci-log-output-${runId}`);
+  const preEl  = document.getElementById(`ci-log-pre-${runId}`);
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Loading CI logs…'; }
+  if (msgEl) { msgEl.textContent = ''; msgEl.className = 'ci-log-msg'; }
+
+  try {
+    const res  = await fetch(`/api/ci/logs?job_id=${jobId}`);
+    const data = await res.json();
+
+    if (data.error) {
+      if (msgEl) {
+        msgEl.className = 'ci-log-msg ci-log-msg-error';
+        msgEl.textContent = `Error: ${data.error}`;
+      }
+      if (btn) { btn.disabled = false; btn.textContent = '📋 Load CI Logs & Parse TC Results'; }
+      return;
+    }
+
+    // Update TC grid with parsed results
+    const tcResults  = data.tc_results || {};
+    const card       = document.getElementById(`ci-run-${runId}`);
+    const ciStatus   = (card && card.dataset.status)     || 'completed';
+    const ciConclusion=(card && card.dataset.conclusion) || 'success';
+    const gridEl     = document.getElementById(`ci-tc-grid-${runId}`);
+    if (gridEl) gridEl.innerHTML = ciTCGridHTML(ciStatus, ciConclusion, tcResults);
+
+    if (outEl) outEl.style.display = 'block';
+    if (preEl) preEl.textContent = data.log || '(empty log)';
+    if (btn)   btn.style.display = 'none';
+
+    const count = Object.keys(tcResults).length;
+    if (msgEl) {
+      msgEl.className = 'ci-log-msg ci-log-msg-ok';
+      msgEl.textContent = count > 0
+        ? `✓ Parsed ${count}/12 test case results from CI log output.`
+        : `✓ Log loaded. TC grid inferred from overall CI ${ciConclusion} status (load logs for granular results).`;
+    }
+  } catch (e) {
+    if (msgEl) {
+      msgEl.className = 'ci-log-msg ci-log-msg-error';
+      msgEl.textContent = `Request failed: ${String(e)}`;
+    }
+    if (btn) { btn.disabled = false; btn.textContent = '📋 Load CI Logs & Parse TC Results'; }
+  }
+}
+
+function ciStartPolling(runId) {
+  if (ciPollingTimer && ciPollingRunId === runId) return;
+  if (ciPollingTimer) clearInterval(ciPollingTimer);
+  ciPollingRunId   = runId;
+  ciPollingTimer   = setInterval(() => ciPollRun(runId), CI_POLL_MS);
+}
+
+function ciStopPolling() {
+  if (ciPollingTimer) { clearInterval(ciPollingTimer); ciPollingTimer = null; ciPollingRunId = null; }
+}
+
+async function ciPollRun(runId) {
+  try {
+    const res  = await fetch(`/api/ci/jobs?run_id=${runId}`);
+    const data = await res.json();
+    if (data.error) return;
+
+    const jobs     = data.jobs || [];
+    const buildJob = jobs.find(j => j.name === 'build') || jobs[0];
+    if (!buildJob) return;
+
+    const newStatus = buildJob.status;
+    const newConc   = buildJob.conclusion;
+
+    // Update run card data attributes
+    const card = document.getElementById(`ci-run-${runId}`);
+    if (card) {
+      card.dataset.status     = newStatus;
+      card.dataset.conclusion = newConc || '';
+      const badgeEl = card.querySelector('.ci-run-badge');
+      if (badgeEl) badgeEl.outerHTML = ciStatusBadge(newConc, newStatus);
+    }
+
+    // Update TC grid
+    const gridEl = document.getElementById(`ci-tc-grid-${runId}`);
+    if (gridEl) gridEl.innerHTML = ciTCGridHTML(newStatus, newConc, null);
+
+    // Update steps
+    const stepsEl = document.getElementById(`ci-steps-${runId}`);
+    if (stepsEl && buildJob.steps && buildJob.steps.length) {
+      stepsEl.innerHTML = buildJob.steps.map(ciStepHTML).join('');
+    }
+
+    if (newStatus === 'completed') ciStopPolling();
+  } catch (_) { /* silent on poll errors */ }
+}
+
+async function ciLoadRuns() {
+  const listEl = document.getElementById('ci-runs-list');
+  if (!listEl) return;
+  listEl.innerHTML = '<div class="ci-loading">Loading recent CI runs from GitHub…</div>';
+
+  const msgEl = document.getElementById('ci-message');
+  if (msgEl) { msgEl.textContent = ''; msgEl.className = 'ci-message'; }
+
+  try {
+    const res  = await fetch('/api/ci/runs');
+    const data = await res.json();
+
+    if (data.error) {
+      listEl.innerHTML = `<div class="ci-error">${escapeHTML(data.error)}</div>`;
+      return;
+    }
+
+    const runs = data.workflow_runs || [];
+    if (!runs.length) {
+      listEl.innerHTML = '<div class="ci-empty">No workflow runs found. Push a commit or trigger a run above.</div>';
+      return;
+    }
+
+    listEl.innerHTML = runs.map(ciRunHTML).join('');
+  } catch (e) {
+    listEl.innerHTML = `<div class="ci-error">Failed to load runs: ${escapeHTML(String(e))}</div>`;
+  }
+}
+
+async function ciTriggerRun() {
+  const btn      = document.getElementById('ci-trigger-btn');
+  const msgEl    = document.getElementById('ci-message');
+  const refSel   = document.getElementById('ci-ref-select');
+  const ref      = refSel ? refSel.value : 'main';
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Triggering…'; }
+  if (msgEl) { msgEl.className = 'ci-message'; msgEl.textContent = ''; }
+
+  try {
+    const res  = await fetch('/api/ci/trigger', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ref }),
+    });
+    const data = await res.json();
+
+    if (!res.ok || data.error) {
+      if (msgEl) {
+        msgEl.className = 'ci-message ci-message-error';
+        msgEl.textContent = `Error: ${data.error || 'Trigger failed'}`;
+      }
+    } else {
+      if (msgEl) {
+        msgEl.className = 'ci-message ci-message-ok';
+        msgEl.textContent = `✓ ${data.message || 'Workflow triggered!'} Refreshing runs in 4 s…`;
+      }
+      setTimeout(ciLoadRuns, 4000);
+    }
+  } catch (e) {
+    if (msgEl) {
+      msgEl.className = 'ci-message ci-message-error';
+      msgEl.textContent = `Request failed: ${String(e)}`;
+    }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '▶ Trigger New CI Run'; }
+  }
+}
+
+function wireCIMonitor() {
+  const triggerBtn = document.getElementById('ci-trigger-btn');
+  const refreshBtn = document.getElementById('ci-refresh-btn');
+
+  if (triggerBtn) triggerBtn.addEventListener('click', ciTriggerRun);
+  if (refreshBtn) refreshBtn.addEventListener('click', ciLoadRuns);
+
+  // Fetch server-detected repo info and token status
+  fetch('/api/ci/config').then(r => r.json()).then(cfg => {
+    const repoEl = document.getElementById('ci-repo-name');
+    const linkEl = document.getElementById('ci-gh-link');
+    const hintEl = document.getElementById('ci-env-hint');
+
+    if (repoEl) {
+      repoEl.textContent = cfg.repo || 'not detected';
+      if (!cfg.repo) repoEl.classList.add('ci-repo-unknown');
+    }
+    if (linkEl && cfg.repo) {
+      linkEl.href = `https://github.com/${cfg.repo}/actions`;
+    }
+    // Show .env hint only when the token is missing
+    if (hintEl) {
+      hintEl.style.display = cfg.hasToken ? 'none' : 'flex';
+    }
+    if (cfg.hasToken) {
+      const msgEl = document.getElementById('ci-message');
+      if (msgEl) {
+        msgEl.className = 'ci-message ci-message-ok';
+        msgEl.textContent = '✓ GITHUB_TOKEN loaded from nsan-ui/.env — log access and triggering enabled.';
+      }
+    }
+  }).catch(() => {});
 }
 
 // ============ init ============
@@ -654,6 +1028,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   wireTestSuite();
   renderPerfChart();
   renderIRSim();
+  wireCIMonitor();
+  ciLoadRuns();
   setInterval(checkHealth, 15000); // keep status bar honest if server starts later
 });
 

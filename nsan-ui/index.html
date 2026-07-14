@@ -25,6 +25,7 @@
       <a href="#lab" class="nav-tab" data-tab="lab">Shadow Lab</a>
       <a href="#tests" class="nav-tab" data-tab="tests">Test Suite</a>
       <a href="#perf" class="nav-tab" data-tab="perf">Performance</a>
+      <a href="#ci" class="nav-tab" data-tab="ci">CI Monitor</a>
     </nav>
 
   </div>
@@ -417,6 +418,51 @@
     <p class="section-lede">Log-scale runtime overhead comparison relative to an uninstrumented baseline execution across standard scientific computing kernels.</p>
     <div id="perf-chart"></div>
     <p class="perf-note">Micro-benchmarks on tiny programs measure ≈1.00× — where OS process-launch overhead (70–80ms) dominates sub-millisecond computation. At realistic scientific workload scales, the true instruction-level cost of 2–4× becomes apparent.</p>
+  </section>
+
+
+  <section id="ci" class="wrap tab-section">
+
+    <h2><span class="step-no">6</span>Live CI / GitHub Actions Monitor</h2>
+
+    <p class="section-lede">
+      Monitor GitHub Actions workflow runs for <code>.github/workflows/build.yml</code>,
+      inspect per-step build status, view per-test-case compilation results, and trigger
+      new CI runs directly from this UI. Enter a GitHub Personal Access Token (PAT) with
+      <code>workflow</code> scope to enable log access and workflow dispatch.
+    </p>
+
+    <div class="ci-panel">
+
+      <div class="ci-config">
+        <div class="ci-repo-row">
+          <span class="ci-config-label">Repository</span>
+          <span class="ci-repo-name mono" id="ci-repo-name">detecting…</span>
+          <a class="ci-gh-link" id="ci-gh-link" href="#" target="_blank" rel="noopener noreferrer">↗ Actions</a>
+        </div>
+        <div class="ci-env-hint" id="ci-env-hint" style="display:none">
+          <span class="ci-env-icon">🔑</span>
+          <span>Add <code>GITHUB_TOKEN=ghp_…</code> to <code>nsan-ui/.env</code> and restart
+          <code>python3 server.py</code> to enable log access and workflow triggering.</span>
+        </div>
+        <div class="ci-actions-row">
+          <button class="ci-trigger-btn" id="ci-trigger-btn">▶ Trigger New CI Run</button>
+          <select id="ci-ref-select" class="ci-ref-select">
+            <option value="main">main</option>
+            <option value="final-submission">final-submission</option>
+          </select>
+          <button class="ci-refresh-btn" id="ci-refresh-btn">↻ Refresh Runs</button>
+        </div>
+      </div>
+
+      <div class="ci-message" id="ci-message"></div>
+
+      <div class="ci-runs-list" id="ci-runs-list">
+        <div class="ci-loading">Loading recent CI workflow runs…</div>
+      </div>
+
+    </div>
+
   </section>
 
 </main>

@@ -24,11 +24,36 @@ import sys
 import tempfile
 import time
 import urllib.parse
+import urllib.request
+import urllib.error
+import io
+import zipfile
 
 # ---------------------------------------------------------------------------
 # Configuration — auto-detected, override with env vars if detection is wrong.
 # ---------------------------------------------------------------------------
 HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def _load_dotenv(path):
+    """Load key=value pairs from a .env file into os.environ (stdlib only)."""
+    if not os.path.isfile(path):
+        return
+    with open(path, "r", encoding="utf-8") as fh:
+        for raw in fh:
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, val = line.partition("=")
+            key = key.strip()
+            val = val.strip().strip('"').strip("'")
+            if key and key not in os.environ:   # real env vars always win
+                os.environ[key] = val
+
+
+_load_dotenv(os.path.join(HERE, ".env"))
+
+
 REPO_ROOT = os.environ.get("NSAN_REPO_ROOT", os.path.abspath(os.path.join(HERE, "..")))
 TESTS_DIR = os.path.join(REPO_ROOT, "tests")
 NSAN_CLANGXX = os.environ.get("NSAN_CLANGXX", os.path.join(REPO_ROOT, "nsan-clang++"))
@@ -76,6 +101,109 @@ PASS_PLUGIN = os.environ.get("NSAN_PASS_PLUGIN") or find_first(
 RUNTIME_LIB = os.environ.get("NSAN_RUNTIME_LIB") or find_first(
     ["build/**/libnsan_runtime.a", "**/libnsan_runtime.a"]
 )
+
+
+# ---------------------------------------------------------------------------
+# GitHub CI integration
+# ---------------------------------------------------------------------------
+GH_TOKEN = os.environ.get("GITHUB_TOKEN", "")
+
+
+def detect_gh_repo():
+    env_repo = os.environ.get("NSAN_GH_REPO", "")
+    if env_repo:
+        return env_repo
+    try:
+        result = subprocess.run(
+            ["git", "remote", "get-url", "origin"],
+            cwd=REPO_ROOT, capture_output=True, text=True, timeout=5,
+        )
+        url = result.stdout.strip()
+        if "github.com" in url:
+            m = re.search(r"github\.com[:/]([^/]+/[^/.]+?)(?:\.git)?$", url)
+            if m:
+                return m.group(1)
+    except Exception:
+        pass
+    return ""
+
+
+GH_REPO = detect_gh_repo()
+
+
+def gh_request(method, path, body=None, token=None, raw=False):
+    """Proxy a GitHub REST API call. Returns dict with ok/data/error keys."""
+    tok = token or GH_TOKEN
+    url = f"https://api.github.com{path}"
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "User-Agent": "NSan-UI/1.0",
+    }
+    if tok:
+        headers["Authorization"] = f"Bearer {tok}"
+    data = json.dumps(body).encode("utf-8") if body is not None else None
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    try:
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            raw_data = resp.read()
+            if raw:
+                return {"ok": True, "status": resp.status, "raw": raw_data}
+            return {"ok": True, "status": resp.status,
+                    "data": json.loads(raw_data) if raw_data else {}}
+    except urllib.error.HTTPError as e:
+        err_body = ""
+        try:
+            err_body = e.read().decode("utf-8", errors="replace")
+        except Exception:
+            pass
+        return {"ok": False, "status": e.code, "error": err_body or str(e)}
+    except urllib.error.URLError as e:
+        return {"ok": False, "error": f"Network error: {e.reason}"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def parse_tc_results_from_log(log_text):
+    """
+    Parse GitHub Actions CI log to extract per-TC WARN/SILENT outcomes.
+    Handles GitHub's timestamp prefix and multiple run.sh output formats.
+    """
+    ts_prefix = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z\s*")
+    lines = [ts_prefix.sub("", line) for line in log_text.splitlines()]
+    cleaned = "\n".join(lines)
+
+    results = {}
+
+    # Strategy 1 – explicit section markers: "=== TC1 ===", "Running TC1", "## TC1"
+    section_re = re.compile(
+        r"(?:={2,}\s*TC(\d+)|Running\s+TC(\d+)|##\s*TC(\d+)|TC(\d+)\s*:)",
+        re.IGNORECASE,
+    )
+    sections = list(section_re.finditer(cleaned))
+    if sections:
+        for idx, match in enumerate(sections):
+            tc_num = next(g for g in match.groups() if g is not None)
+            start = match.end()
+            end = sections[idx + 1].start() if idx + 1 < len(sections) else len(cleaned)
+            chunk = cleaned[start:end]
+            results[f"TC{tc_num}"] = "warn" if "[WARN]" in chunk else "silent"
+        return results
+
+    # Strategy 2 – TC-prefixed lines: "TC1 [Name - WARN]" or "TC3 [Name - SILENT]"
+    for i in range(1, 13):
+        m = re.search(rf"\bTC{i}\b[^\n]*(WARN|SILENT)", cleaned, re.IGNORECASE)
+        if m:
+            results[f"TC{i}"] = "warn" if "WARN" in m.group(1).upper() else "silent"
+
+    # Strategy 3 – compile/binary names like "tc1" followed by [WARN]
+    if not results:
+        for i in range(1, 13):
+            chunk = re.search(rf"tc{i}[^\n]*\n(?:[^\n]*\n){{0,5}}", cleaned, re.IGNORECASE)
+            if chunk:
+                results[f"TC{i}"] = "warn" if "[WARN]" in chunk.group(0) else "silent"
+
+    return results
 
 
 # ---------------------------------------------------------------------------
@@ -333,6 +461,61 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return self._json({"error": f"no such test file: {tc}"}, 404)
             return self._json(get_ir(src, fn))
 
+        # ---- GitHub CI proxy routes ----
+
+        if parsed.path == "/api/ci/config":
+            return self._json({
+                "repo": GH_REPO,
+                "hasToken": bool(GH_TOKEN),
+                "workflowFile": "build.yml",
+            })
+
+        if parsed.path == "/api/ci/runs":
+            if not GH_REPO:
+                return self._json(
+                    {"error": "GitHub repo not detected. Set NSAN_GH_REPO in nsan-ui/.env"}, 400)
+            result = gh_request("GET", f"/repos/{GH_REPO}/actions/runs?per_page=10")
+            if not result["ok"]:
+                return self._json(
+                    {"error": f"GitHub API {result.get('status','error')}: {result.get('error','unknown')}",
+                     "status": result.get("status")}, 502)
+            return self._json(result["data"])
+
+        if parsed.path == "/api/ci/jobs":
+            run_id = qs.get("run_id", [None])[0]
+            if not run_id:
+                return self._json({"error": "missing ?run_id="}, 400)
+            if not GH_REPO:
+                return self._json({"error": "GitHub repo not detected"}, 400)
+            result = gh_request("GET", f"/repos/{GH_REPO}/actions/runs/{run_id}/jobs")
+            if not result["ok"]:
+                return self._json(
+                    {"error": result.get("error"), "status": result.get("status")}, 502)
+            return self._json(result["data"])
+
+        if parsed.path == "/api/ci/logs":
+            job_id = qs.get("job_id", [None])[0]
+            if not job_id:
+                return self._json({"error": "missing ?job_id="}, 400)
+            if not GH_TOKEN:
+                return self._json(
+                    {"error": "GITHUB_TOKEN not set. Add it to nsan-ui/.env and restart the server.",
+                     "needsToken": True}, 403)
+            if not GH_REPO:
+                return self._json({"error": "GitHub repo not detected"}, 400)
+            result = gh_request(
+                "GET", f"/repos/{GH_REPO}/actions/jobs/{job_id}/logs",
+                raw=True)
+            if not result["ok"]:
+                return self._json(
+                    {"error": result.get("error"), "status": result.get("status")}, 502)
+            log_text = result["raw"].decode("utf-8", errors="replace")
+            tc_results = parse_tc_results_from_log(log_text)
+            MAX_LOG = 60_000
+            if len(log_text) > MAX_LOG:
+                log_text = "… (showing last 60 KB)\n" + log_text[-MAX_LOG:]
+            return self._json({"log": log_text, "tc_results": tc_results})
+
         return super().do_GET()
 
     def do_POST(self):
@@ -373,6 +556,33 @@ int main() {{
                 result = compile_and_run(src_path, eps=eps)
                 result["source"] = source
                 return self._json(result)
+
+        if parsed.path == "/api/ci/trigger":
+            body = self._read_json_body()
+            ref = body.get("ref", "main")
+            if not GH_TOKEN:
+                return self._json(
+                    {"error": "GITHUB_TOKEN not set. Add it to nsan-ui/.env and restart the server.",
+                     "needsToken": True}, 403)
+            if not GH_REPO:
+                return self._json({"error": "GitHub repo not detected"}, 400)
+            result = gh_request(
+                "POST",
+                f"/repos/{GH_REPO}/actions/workflows/build.yml/dispatches",
+                body={"ref": ref},
+            )
+            if not result["ok"]:
+                if result.get("status") == 422:
+                    return self._json(
+                        {"error": f"Cannot dispatch: workflow_dispatch trigger may be missing or "
+                                  f"branch '{ref}' does not exist. Details: {result.get('error','')}"},
+                        422)
+                return self._json(
+                    {"error": result.get("error", "Trigger failed"),
+                     "status": result.get("status")}, 502)
+            return self._json(
+                {"ok": True,
+                 "message": f"Workflow dispatch triggered on '{ref}'. Refresh in a few seconds."})
 
         self.send_error(404)
 
